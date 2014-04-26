@@ -18,7 +18,9 @@ var m = mutex(lev('./testdb'))
 
 testOrder(function() {
   testOpts(function() {
-    d.cleanup()
+    testBatchSize(function() {
+      d.cleanup()
+    })
   })
 })
 
@@ -77,4 +79,21 @@ function testOpts(cb) {
   })
 }
 
-ok.expect(6)
+// Kinda
+function testBatchSize(cb) {
+  var doc = {"tasty": true}
+  m.setBatchSize(2)
+  assert.equal(m.batchSize, 2)
+  m.put('tacos', doc, {valueEncoding: 'json'}, function(err) {
+    if (err) throw err
+  })
+  m.put('burritos', doc, {valueEncoding: 'json'}, function(err) {
+    if (err) throw err
+  })
+  m.on('writes', function (writes) {
+    assert.equal(writes.length, 2)
+    ok('batchSize batches writes')
+  })
+}
+
+ok.expect(8)

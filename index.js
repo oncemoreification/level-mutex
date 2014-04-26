@@ -32,14 +32,21 @@ function extend(a, b) {
   }
 }
 
-function Mutex (lev) {
+function Mutex (lev, opts) {
+  opts = opts || {}
   this.lev = lev
+  this.batchSize = opts.batchSize || 1
   this.writing = false
   this.reading = false
   this.writes = []
   this.reads = []
 }
 util.inherits(Mutex, events.EventEmitter)
+
+Mutex.prototype.setBatchSize = function (size) {
+  this.batchSize = size
+}
+
 Mutex.prototype.put = function (key, value, opts, cb) {
   if (typeof opts === 'function') {
     cb = opts
@@ -106,7 +113,7 @@ Mutex.prototype._read = function () {
   })
 }
 Mutex.prototype._write = function () {
-  if (!this.writes.length) return this.kick()
+  if (!this.writes.length || this.writes.length < this.batchSize) return this.kick()
   var self = this
     , writes = this.writes.map(function (x) {return x[0]})
     , callbacks = this.writes.map(function (x) {return x[1]})
