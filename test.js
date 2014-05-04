@@ -79,21 +79,26 @@ function testOpts(cb) {
   })
 }
 
-// Kinda
 function testBatchSize(cb) {
   var doc = {"tasty": true}
-  m.setBatchSize(2)
-  assert.equal(m.batchSize, 2)
+  m.queueWrites()
+  assert(m.queuing)
   m.put('tacos', doc, {valueEncoding: 'json'}, function(err) {
     if (err) throw err
+    assert(!m.queuing)
   })
   m.put('burritos', doc, {valueEncoding: 'json'}, function(err) {
     if (err) throw err
+    assert(!m.queuing)
   })
-  m.on('writes', function (writes) {
-    assert.equal(writes.length, 2)
+  m.on('reads', function () {
+    assert.equal(m.writes.length, 2)
+    m.dequeueWrites()
+  })
+  m.on('writes', function () {
     ok('batchSize batches writes')
+    cb()
   })
 }
 
-ok.expect(8)
+ok.expect(7)
