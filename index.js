@@ -37,23 +37,11 @@ function Mutex (lev, opts) {
   this.lev = lev
   this.writing = false
   this.reading = false
-  this.queuing = false
   this.writes = []
   this.reads = []
-  this.queuedWrites = []
+  this.batches = []
 }
 util.inherits(Mutex, events.EventEmitter)
-
-Mutex.prototype.queueWrites = function () {
-  this.queuing = true
-}
-
-Mutex.prototype.dequeueWrites = function () {
-  this.queuing = false
-  this.writes.concat(this.queuedWrites)
-  this.queuedWrites = []
-  this.kick()
-};
 
 Mutex.prototype.put = function (key, value, opts, cb) {
   if (typeof opts === 'function') {
@@ -65,6 +53,12 @@ Mutex.prototype.put = function (key, value, opts, cb) {
   this.writes.push([write, cb])
   this.kick()
 }
+
+Mutex.prototype.putBatch = function (batch, cb) {
+  this.batches.push([batch, cb])
+  this.kick()
+}
+
 Mutex.prototype.get = function (key, opts, cb) {
   if (typeof opts === 'function') {
     cb = opts
@@ -99,7 +93,7 @@ Mutex.prototype.peekFirst = function (opts, cb) {
 Mutex.prototype.kick = function () {
   var self = this
   if (this.writing || this.reading) return
-  if (!this.writes.length && !this.reads.length) return
+  if (!this.writes.length && !this.reads.length && !this.batches.length) return
   if (!this._nt) {
     this._nt = true
     setImmediate(function () {
@@ -121,13 +115,18 @@ Mutex.prototype._read = function () {
   })
 }
 Mutex.prototype._write = function () {
-  if (!this.writes.length) return this.kick()
+  if (!this.writes.length && !this.batches.length) return this.kick()
   var self = this
     , writes = this.writes.map(function (x) {return x[0]})
     , callbacks = this.writes.map(function (x) {return x[1]})
     ;
+  this.batches.forEach(function(val) {
+    writes.push.apply(writes, val[0])
+    callbacks.push(val[1])
+  })
   this.writing = true
   this.writes = []
+  this.batches = []
 
   this.emit('writes', writes)
   this.lev.batch(writes, function (e) {

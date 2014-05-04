@@ -81,23 +81,17 @@ function testOpts(cb) {
 
 function testBatchSize(cb) {
   var doc = {"tasty": true}
-  m.queueWrites()
-  assert(m.queuing)
-  m.put('tacos', doc, {valueEncoding: 'json'}, function(err) {
-    if (err) throw err
-    assert(!m.queuing)
+  m.putBatch([
+    { type: 'put', key: 'tacos', value: doc, valueEncoding: 'json'},
+    { type: 'put', key: 'burritos', value: doc, valueEncoding: 'json'},
+
+  ], function (err) {
+      if (err) throw err
+      cb()
   })
-  m.put('burritos', doc, {valueEncoding: 'json'}, function(err) {
-    if (err) throw err
-    assert(!m.queuing)
-  })
-  m.on('reads', function () {
-    assert.equal(m.writes.length, 2)
-    m.dequeueWrites()
-  })
-  m.on('writes', function () {
+  m.on('writes', function (writes) {
+    assert.equal(writes.length, 2)
     ok('batchSize batches writes')
-    cb()
   })
 }
 
