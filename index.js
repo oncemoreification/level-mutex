@@ -121,7 +121,7 @@ Mutex.prototype._write = function () {
     , callbacks = this.writes.map(function (x) {return x[1]})
     ;
   this.batches.forEach(function(val) {
-    writes.push.apply(writes, val[0])
+    writes = writes.concat(val[0])
     callbacks.push(val[1])
   })
   this.writing = true
